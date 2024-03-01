@@ -1,8 +1,14 @@
+import { Injector, inject, runInInjectionContext } from '@angular/core';
+import { CanActivateChildFn, CanActivateFn, UrlTree } from '@angular/router';
+import { Observable, concatMap, from, last, of, take, takeWhile } from 'rxjs';
+
 function runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]): CanActivateFn | CanActivateChildFn {
     return (route, state) => {
+        const injector = inject(Injector);
+
         return from(guards).pipe(
             concatMap(guard => {
-                const resultValue = guard(route, state);
+                const resultValue = runInInjectionContext(injector, () => guard(route, state));
 
                 if (resultValue instanceof Observable) {
                     return resultValue.pipe(take(1));
@@ -43,6 +49,8 @@ function _runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]): CanAct
 
     // returns a "wrapper" guard that embeds all guards passed as arguments
     return (route, state) => {
+        const injector = inject(Injector);
+
         // this "wrapper" guard will return a "fancy" Observable to which Angular will subscribe
         // 1. Creates an Observable out of all guards
         return from(guards).pipe(
@@ -54,7 +62,7 @@ function _runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]): CanAct
             concatMap(guard => {
                 // 2.1. Run each guard and store it's return value:
                 // boolean | UrlTree | Observable< boolean | UrlTree > | Promise< boolean | UrlTree >
-                const resultValue = guard(route, state);
+                const resultValue = runInInjectionContext(injector, () => guard(route, state));
 
                 // 2.2. Evaluates the return value and converts it to an Observable if needed so that
                 // the `concatMap` operator can do its job and in the end concatenate the emitted value

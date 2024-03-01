@@ -1,9 +1,12 @@
+import { Injector, inject, runInInjectionContext } from '@angular/core';
 import { CanActivateChildFn, CanActivateFn, UrlTree } from '@angular/router';
 import { Observable, lastValueFrom, take } from 'rxjs';
 
 export function runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]): CanActivateFn | CanActivateChildFn {
 
     return (route, state) => {
+        const injector = inject(Injector);
+
         return new Promise(resolve => {
 
             const parseGuardsStartingAt = (index: number) => {
@@ -14,7 +17,7 @@ export function runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]): 
 
                 for (index; index < guards.length; index++) {
                     const guard = guards[index];
-                    let guardReturn = guard(route, state);
+                    let guardReturn = runInInjectionContext(injector, () => guard(route, state));
 
                     if (guardReturn === true) {
                         continue;
@@ -65,6 +68,8 @@ export function _runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]):
 
     // returns a "wrapper" guard that embeds all guards passed as arguments
     return (route, state) => {
+        const injector = inject(Injector);
+
         // this "wrapper" guard will return a Promise that resolves to a boolean or UrlTree
         // 1. Creates the Promise refered above.
         return new Promise(resolve => {
@@ -85,7 +90,8 @@ export function _runSerially(...guards: CanActivateFn[] | CanActivateChildFn[]):
                 // 2. Start looping through guards stating at `index`
                 for (index; index < guards.length; index++) {
                     const guard = guards[index]; // 2.2 gets the guard reference.
-                    let guardReturn = guard(route, state); // 2.3 executes the guard and get its return value.
+                    // 2.3 executes the guard and get its return value.
+                    let guardReturn = runInInjectionContext(injector, () => guard(route, state));
 
                     // 3. Check `guardReturn` actual value
                     if (guardReturn === true) {
